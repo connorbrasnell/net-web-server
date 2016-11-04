@@ -15,13 +15,16 @@ OBJS = $(SOURCE:.c=.o)
 ###################################
 
 # Standard Rules
-all: server
+all: server client
 
 server: server.o
 	$(CC) -pthread -o $@ server.o
 
+client: client.o
+	$(CC) -o $@ client.o
+
 clean:
-	rm -f $(OBJS) server
+	rm -f $(OBJS) server client
 
 ###################################
 
