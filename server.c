@@ -6,6 +6,8 @@
 #include<unistd.h>   
 #include<pthread.h> 
 #include<time.h>
+#include<stdbool.h>
+#include<errno.h>
  
 FILE *f;
 pthread_mutex_t lock_x;
@@ -78,15 +80,23 @@ int main(int argc , char *argv[]) {
 	if (socket_desc == -1) {
 		fprintf(stderr,"Could not create socket");
 	}
-
+ 
 	// Prepare the sockaddr_in structure
 	server.sin_family = AF_INET;
 	server.sin_addr.s_addr = INADDR_ANY;
 	server.sin_port = htons(8088);
 
+	int yes = 1; 
+
+	// Lose the pesky "Address already in use" error message 
+	if (setsockopt(socket_desc,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(int)) == -1) { 
+	    perror("setsockopt"); 
+	    return 1; 
+	}
+
 	// Bind
 	if( bind(socket_desc,(struct sockaddr *)&server , sizeof(server)) < 0) {
-		fprintf(stderr,"Bind Failed\n");
+		fprintf(stderr,"Bind Failed %d: %s\n", errno, strerror(errno));
 		return 1;
 	}
 
@@ -199,35 +209,64 @@ void *connection_handler(void *socket_desc) {
 		pch++;
 	}
 	char *filepath = pch;
+	size_t filelength = 0;
+	char contentlength[1000];
 
 	char *operationget = strstr(client_request[0],"GET");
 	char *operationhead = strstr(client_request[0],"HEAD");
+	
+	bool display404 = false;
+
+	char datebuf[1000];
+	time_t now = time(0);
+	struct tm tm = *gmtime(&now);
+	strftime(datebuf, sizeof datebuf, "%a, %d %b %Y %H:%M:%S %Z", &tm);
 
 	if (operationget != NULL || operationhead != NULL) {
+
+		FILE *fp;
+		fp = fopen(filepath,"r");
+		bool fileexists = true;
+
+		if (fp == NULL) {
+			fileexists = false;
+		}
 		
 		printf("Operation: %s\n",operation);
 		printf("File Path: %s\n",filepath);
-
-		char datebuf[1000];
-		time_t now = time(0);
-		struct tm tm = *gmtime(&now);
-		strftime(datebuf, sizeof datebuf, "%a, %d %b %Y %H:%M:%S %Z", &tm);
-		datebuf[strlen(datebuf)] = '\n';
 		
+		if (fileexists == true) {
+			write(sock, "HTTP/1.1 200 OK\r\n", 17);
+		} else if (fileexists == false) {
+			write(sock, "HTTP/1.1 404 Not Found\r\n", 24);
 
-		write(sock, "HTTP/1.1 200 OK\r\n", 16);
+			fp = fopen("404.html","r");
+			if (fp != NULL) {
+				fileexists = true;
+				display404 = true;
+			}
+		}
+
+		if (fileexists == true) {
+			size_t pos = ftell(fp); 
+			fseek(fp, 0, SEEK_END);    
+			filelength = ftell(fp);
+			fseek(fp, pos, SEEK_SET);
+
+			strncpy(contentlength,"Content-Length: ",16);
+			sprintf(contentlength + strlen(contentlength), "%i", filelength);
+			strcat(contentlength,"\r\n");
+		}
 		
 		write(sock, "Date: ", 6);
 		write(sock, datebuf, strlen(datebuf));
 		write(sock, "\r\n", 2);
 
+		write(sock, contentlength, strlen(contentlength));
+
 		write(sock, "\r\n", 2);
-		//write(sock, "<html><head></head><body>Test</body></html>\r\n", 45);
 
-		if (operationget != NULL) {
-
-			FILE *fp;
-			fp = fopen(filepath,"r");
+		if ((operationget != NULL || display404 == true) && fileexists == true) {
 		
 			char filebuffer[50];
 
@@ -246,6 +285,15 @@ void *connection_handler(void *socket_desc) {
 
 			fclose(fp);
 		}
+	} else {
+	
+		write(sock, "HTTP/1.1 501 Not Implemented\r\n", 30);
+
+		write(sock, "Date: ", 6);
+		write(sock, datebuf, strlen(datebuf));
+		write(sock, "\r\n", 2);
+
+		write(sock, "\r\n", 2);
 	}
 
 	freestr(lineCounter, client_request);
