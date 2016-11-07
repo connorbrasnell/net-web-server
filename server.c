@@ -100,13 +100,13 @@ int main(int argc , char *argv[]) {
 		return 1;
 	}
 
-	puts("Bind Done");
+	puts("Bind Done\n");
 
 	// Listen
 	listen(socket_desc , 3);
 
 	// Accept and incoming connection
-	puts("Waiting for incoming connections...");
+	puts("Waiting for incoming connections...\n");
 	c = sizeof(struct sockaddr_in);
 
 	while( (new_socket = accept(socket_desc, (struct sockaddr *)&client, (socklen_t*)&c)) ) {
@@ -145,7 +145,7 @@ void *connection_handler(void *socket_desc) {
 	client_request = malloc(INITSIZE*sizeof(char*));
 	if (client_request == NULL) {
 		fprintf(stderr,"Malloc Failed\n");
-		free(socket_desc);
+		//free(socket_desc);
 		return 0;
 	}
 
@@ -159,6 +159,8 @@ void *connection_handler(void *socket_desc) {
 		len++;
 		
 		if (client_request[lineCounter][len-1] == '\n') {
+
+			memset(&client_request[lineCounter][len], 0, msglen-len);
 
 			lineCounter++;
 			msglen = INITSIZE;
@@ -181,7 +183,7 @@ void *connection_handler(void *socket_desc) {
 			client_request[lineCounter] = realloc(client_request[lineCounter],(msglen * sizeof(char)));
 			if (client_request[lineCounter] == NULL) {
 				fprintf(stderr,"Malloc Failed\n");
-				free(socket_desc);
+				//free(socket_desc);
 				freestr(lineCounter, client_request);
 				return 0;
 
@@ -310,7 +312,7 @@ void *connection_handler(void *socket_desc) {
 	close(sock);
 
 	// Free the socket pointer
-	free(socket_desc);
+	//free(socket_desc);
 
 	pthread_exit(NULL);
 
