@@ -18,7 +18,7 @@ OBJS = $(SOURCE:.c=.o)
 all: server client
 
 run: server 
-	./server
+	./server &
 
 server: server.o
 	$(CC) -pthread -o $@ server.o

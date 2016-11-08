@@ -118,6 +118,7 @@ int main(int argc , char *argv[]) {
 		 
 		if( pthread_create( &sniffer_thread , NULL ,  &connection_handler , (void*) new_sock) < 0) {
 			perror("could not create thread");
+			free(new_sock);
 			return 1;
 		}
 
@@ -128,6 +129,7 @@ int main(int argc , char *argv[]) {
 		fprintf(stderr,"Accept Failed\n");
 	}
 
+	free(new_sock);
 	return 0;
 }
 

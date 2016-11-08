@@ -26,6 +26,8 @@ make all
 # ampersand just in case they forgot to background it
 make run &
 
+sleep 2
+
 testcase=1
 
 while read url auth; do

@@ -69,11 +69,23 @@ int main(int argc , char *argv[]) {
 		fprintf(stderr,"Could not create socket\n");
 		return 1;
 	}
+
+	char *argumentpointer = argv[1];
+	bool justhead = false;
+
+	if (argc > 2) {
+		for (int i = 0; i < argc; i++) {
+			if (strncmp(argv[i], "-I",2)) {
+				justhead = true;
+			}
+			argumentpointer = argv[argc-1];
+		}
+	}
 	
-	int fulllength = strlen(argv[1]);
+	int fulllength = strlen(argumentpointer);
 	char address[fulllength];
 	memset(&address[0], 0, fulllength);
-	strncpy(address, argv[1], fulllength);
+	strncpy(address, argumentpointer, fulllength);
 	
 	if (fulllength == 0) {
 		return 1;
@@ -94,7 +106,7 @@ int main(int argc , char *argv[]) {
 			//strncat(addressurl,&address[position],1);
 			position++;
 		}
-		strncpy(addressurl,&address[position],1);
+		strncat(addressurl,&address[position],1);
 		position++;
 	} else if (address[position] == 'w') {
 		strncpy(addressurl,&address[position],1);
@@ -115,7 +127,7 @@ int main(int argc , char *argv[]) {
 			position++;
 		}
 	} else if (position != fulllength && (address[position] == '/' || (address[position] == ':' && address[position+1] == '/'))) {
-		strncpy(portnum, "8088", 4);
+		strncpy(portnum, "80", 4);
 		if (address[position] == ':') {
 			position++;
 		}
@@ -165,12 +177,23 @@ int main(int argc , char *argv[]) {
 	//puts("Connected\n");
 
 	write(socket_desc, "GET /", 5);
+	//printf("GET /");
+	//printf("%s",filepath);
+	//printf(" HTTP/1.1\n");
+	//printf("filepath size: %i\n",strlen(filepath));
 	write(socket_desc, filepath, strlen(filepath));
 	write(socket_desc, " HTTP/1.1\r\n", 11);
 
+	//write(socket_desc, "User-Agent: curl/7.38.0\r\n", 25);
+	write(socket_desc, "Host: ", 6);
+	write(socket_desc, addressurl, strlen(addressurl));
 	write(socket_desc, "\r\n", 2);
 
-	int read_size;
+	write(socket_desc, "Connection: close\r\n", 19);
+
+	write(socket_desc, "\r\n", 2);
+
+	int read_size = 0;
 	int len = 0;
 	int msglen; 
 	int linelen;
@@ -226,51 +249,62 @@ int main(int argc , char *argv[]) {
 		
 	}
 
-	/*for (int i = 0; i < lineCounter; i++) {
-		printf("Line %i: %s",i+1,client_request[i]);
-	}*/
-
-	char *contentlength;
-	int filelength = 0;
-
-	for (int i = 0; i < lineCounter; i++) {
-		contentlength = strstr(client_request[i],"Content-Length");
-		if (contentlength != NULL) {
-			char *pch;
-
-			pch = strtok(client_request[i]," ");
-			pch = strtok(NULL, " ");
-			
-			filelength = strtol(pch, NULL, 10);
-		
-			break;
-		}
-	}
-
-	char *filemessage;
-	filemessage = malloc(filelength * sizeof(char));
-	if (filemessage == NULL) {
-		return 1;
-	}
-
-	if (filelength != 0) {
-		if ((read_size = read(socket_desc,&filemessage[0],filelength)) > 0) {
-			printf("%s",filemessage);
+	if (justhead == true) {
+		for (int i = 0; i < lineCounter; i++) {
+			printf("%s",client_request[i]);
 		}
 	} else {
-		int currentlength = 0;
-		filemessage = realloc(filemessage, INITSIZE * sizeof(char));
 
-		while ((read_size = read(socket_desc,&filemessage[currentlength],INITSIZE)) > 0) {
-			currentlength = currentlength + INITSIZE;
-			filemessage = realloc(filemessage, (INITSIZE + currentlength)*sizeof(char));
+		char *contentlength;
+		int filelength = 0;
+
+		for (int i = 0; i < lineCounter; i++) {
+			contentlength = strstr(client_request[i],"Content-Length");
+			if (contentlength != NULL) {
+				char *pch;
+
+				pch = strtok(client_request[i]," ");
+				pch = strtok(NULL, " ");
+			
+				filelength = strtol(pch, NULL, 10);
+		
+				break;
+			}
 		}
-		printf("Length: %i\n",strlen(filemessage));
-		memset(&filemessage[strlen(filemessage)], 0, currentlength + INITSIZE - strlen(filemessage));
-		printf("%s",filemessage);
-	}
 
-	free(filemessage);
+		char *filemessage;
+		filemessage = malloc(filelength * sizeof(char));
+		memset(&filemessage[0], 0, filelength);
+		if (filemessage == NULL) {
+			return 1;
+		}
+
+		if (filelength != 0) {
+			while(1) {
+				if ((read_size = recv(socket_desc,&filemessage[0],filelength,0)) > 0) {
+					
+					printf("%s",filemessage);
+					memset(filemessage,0, strlen(filemessage));
+				} else {
+					//memset(&filemessage[filelength], 0, 1);
+					break;
+				}
+			}
+		} else {
+			int currentlength = 0;
+			filemessage = realloc(filemessage, INITSIZE * sizeof(char));
+
+			while ((read_size = read(socket_desc,&filemessage[currentlength],INITSIZE)) > 0) {
+				currentlength = currentlength + INITSIZE;
+				filemessage = realloc(filemessage, (INITSIZE + currentlength)*sizeof(char));
+			}
+			//printf("Length: %i\n",strlen(filemessage));
+			memset(&filemessage[strlen(filemessage)], 0, currentlength + INITSIZE - strlen(filemessage));
+			printf("%s",filemessage);
+		}
+
+		free(filemessage);
+	}
 
 	return 0;
 }

@@ -1,3 +1,4 @@
 127.0.0.1:8088/index.html
-127.0.0.1:8088/old/old1.html
-127.0.0.1:8088/old/old2.html
+127.0.0.1:8088/404.html
+127.0.0.1:8088/test/testfile1.html
+127.0.0.1:8088/test/testfile2.html
