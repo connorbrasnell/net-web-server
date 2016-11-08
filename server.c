@@ -213,7 +213,7 @@ void *connection_handler(void *socket_desc) {
 		pch++;
 	}
 	char *filepath = pch;
-	size_t filelength = 0;
+	int filelength = 0;
 	char contentlength[1000];
 
 	char *operationget = strstr(client_request[0],"GET");
@@ -252,7 +252,7 @@ void *connection_handler(void *socket_desc) {
 		}
 
 		if (fileexists == true) {
-			size_t pos = ftell(fp); 
+			int pos = ftell(fp); 
 			fseek(fp, 0, SEEK_END);    
 			filelength = ftell(fp);
 			fseek(fp, pos, SEEK_SET);
